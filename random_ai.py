@@ -3,7 +3,6 @@
 from random import randint
 
 from Battleship import Driver
-from time import sleep
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ import contextlib
 import logging
 from time import sleep
 
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import Firefox
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -10,8 +11,6 @@ from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.firefox import GeckoDriverManager
-import contextlib
-from selenium.common.exceptions import NoSuchElementException
 
 
 class Driver:
@@ -119,7 +118,15 @@ class Driver:
         return powerups
 
     def is_my_turn(self):
-        return self.webdriver.find_element(By.CLASS_NAME, 'attack-text.ng-binding').is_displayed()
+        try:
+            self.webdriver.find_element(By.CLASS_NAME, 'header.ng-animate.attack-add.blink-add.attack.blink.attack-add-active.blink-add-active')
+            return True
+        except NoSuchElementException:
+            try:
+                self.webdriver.find_element(By.CLASS_NAME, 'header.attack.blink')
+                return True
+            except NoSuchElementException:
+                return False
 
     def shoot(self, row, col, powerup='default'):
         # Check if shot is valid
@@ -146,6 +153,26 @@ class Driver:
         with contextlib.suppress(NoSuchElementException):
             after_hit_tip_close_button = self.webdriver.find_element(By.ID, 'nzTour-close')
             after_hit_tip_close_button.click()
+
+    # def play_with_friend(self):
+    #     self.__wait_until_exists__(By.CLASS_NAME, 'btn.btn-success.btn-lg.mb-2.ng-binding.ng-isolate-scope')
+    #     buttons = self.webdriver.find_elements(By.CLASS_NAME, 'btn.btn-success.btn-lg.mb-2.ng-binding.ng-isolate-scope')
+    #     for button in buttons:
+    #         print(button.text.lower())
+    #         if button.text.lower() == 'play with a friend':
+    #             sleep(5)
+    #             print('click')
+    #             button.click()
+    #             print('clicked')
+    #             break
+
+    # def play_online(self):
+    #     self.__wait_until_exists__(By.CLASS_NAME, 'btn.btn-success.btn-lg.mb-2.ng-binding.ng-isolate-scope')
+    #     buttons = self.webdriver.find_elements(By.CLASS_NAME, 'btn.btn-success.btn-lg.mb-2.ng-binding.ng-isolate-scope')
+    #     for button in buttons:
+    #         if button.text.lower() == 'find opponent':
+    #             self.__click__(button)
+    #             break
 
     def wait_for_game_to_load(self):
         self.__wait_until_exists__(By.ID, 'opponent_board')
