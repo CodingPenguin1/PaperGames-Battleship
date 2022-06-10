@@ -136,10 +136,6 @@ class Driver:
         cell = board_element.find_element(By.CLASS_NAME, f'cell-{row}-{col}')
         cell_text = cell.get_attribute('class').strip()
         cell_is_miss = bool(len(cell.find_elements(By.CLASS_NAME, 'magictime.opacityIn.intersection.ng-scope')))
-        print(f'{cell_text}')
-        print(f'cell-{row}-{col}')
-        print(cell_text != f'"cell-{row}-{col}"')
-        print(cell_is_miss)
         if cell_text != f'cell-{row}-{col}' or cell_is_miss:
             return False
 

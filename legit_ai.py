@@ -107,12 +107,10 @@ def generate_attack_mode_heatmap(board, ship_lengths):
                         heatmap[row][col - 1] = get_potential_ship_count_intersecting(board, row, col - 1, row, col, ship_lengths)
                     if col < len(int_board[0]) - 1 and int_board[row][col + 1] == 0:
                         heatmap[row][col + 1] = get_potential_ship_count_intersecting(board, row, col + 1, row, col, ship_lengths)
-                    print('lone hit')
                     return heatmap
 
     # If there's no lone hit, find hits with adjacent hits and predict direction
     # Check all 4 directions for an adjacent hit and mark the nearest empty spaces adjacent to the hit block along that axis
-    print('multiple hits')
     for row in range(len(int_board)):
         for col in range(len(int_board[0])):
             if int_board[row][col] == 1:
@@ -155,8 +153,6 @@ def generate_attack_mode_heatmap(board, ship_lengths):
                             elif int_board[row][col + i] == 0:
                                 heatmap[row][col + i] = 1
                                 break
-    for row in int_board:
-        print(' '.join([str(r) for r in row]))
     return heatmap
 
 
@@ -263,7 +259,7 @@ def shoot():
     if mode == 'search':
         heatmap, powerup = generate_search_mode_heatmap(board, ship_lengths)
 
-        # === Attack mode ===
+    # === Attack mode ===
     else:
         heatmap = generate_attack_mode_heatmap(board, ship_lengths)
 
@@ -305,6 +301,8 @@ if __name__ == '__main__':
     while True:
         driver.close_tips()
 
+        t0 = time()
         if driver.is_my_turn():
             result = shoot()
             print(result)
+            print(f'Whole turn took {time() - t0} seconds')
