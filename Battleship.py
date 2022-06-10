@@ -118,6 +118,8 @@ class Driver:
         return powerups
 
     def is_my_turn(self):
+        sleep(2)  # This is important
+        # TODO: make this sleep not important
         try:
             self.webdriver.find_element(By.CLASS_NAME, 'header.ng-animate.attack-add.blink-add.attack.blink.attack-add-active.blink-add-active')
             return True
@@ -130,8 +132,15 @@ class Driver:
 
     def shoot(self, row, col, powerup='default'):
         # Check if shot is valid
-        # TODO: speed this up
-        if self.get_board()[0][row][col] not in {' ', '?'}:
+        board_element = self.webdriver.find_element(By.ID, 'opponent_board')
+        cell = board_element.find_element(By.CLASS_NAME, f'cell-{row}-{col}')
+        cell_text = cell.get_attribute('class').strip()
+        cell_is_miss = bool(len(cell.find_elements(By.CLASS_NAME, 'magictime.opacityIn.intersection.ng-scope')))
+        print(f'{cell_text}')
+        print(f'cell-{row}-{col}')
+        print(cell_text != f'"cell-{row}-{col}"')
+        print(cell_is_miss)
+        if cell_text != f'cell-{row}-{col}' or cell_is_miss:
             return False
 
         # Powerup selection (is not persistent between turns)
@@ -141,11 +150,10 @@ class Driver:
             powerups_elements[powerups.index(powerup) + 1].click()
 
         # Shoot
-        board_element = self.webdriver.find_element(By.ID, 'opponent_board')
-        cell = board_element.find_element(By.CLASS_NAME, f'cell-{row}-{col}')
         cell.click()
 
-        sleep(2)
+        sleep(2)  # This is important
+        # TODO: make this sleep not important
         return True
 
     def close_tips(self):

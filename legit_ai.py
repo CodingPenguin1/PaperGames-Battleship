@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import contextlib
-from time import sleep
 
 import numpy as np
+from time import sleep, time
 
 from Battleship import Driver
 
@@ -160,9 +160,82 @@ def generate_attack_mode_heatmap(board, ship_lengths):
     return heatmap
 
 
+def generate_search_mode_heatmap(board, ship_lengths):
+    t0 = time()
+    heatmap = np.zeros((len(board), len(board[0])), dtype=int)
+
+    # Mark all spaces adjacent to sunk ships as invalid
+    for row in range(len(board)):
+        for col in range(len(board[0])):
+            if board[row][col].isupper():
+                if row > 0 and board[row - 1][col] == ' ':
+                    board[row - 1][col] = '.'
+                if row < len(board) - 1 and board[row + 1][col] == ' ':
+                    board[row + 1][col] = '.'
+                if col > 0 and board[row][col - 1] == ' ':
+                    board[row][col - 1] = '.'
+                if col < len(board[0]) - 1 and board[row][col + 1] == ' ':
+                    board[row][col + 1] = '.'
+
+    # Populate heatmap
+    for row in range(len(board)):
+        for col in range(len(board[0])):
+            # If space is empty, test all ship locations on it
+            if board[row][col] in {' ', '?'}:
+                heatmap[row][col] += get_potential_ship_count(board, row, col, ship_lengths)
+
+    # Choose powerup if one is available
+    powerups = driver.get_powerups()
+    selected_powerup = 'default'
+    cursor_size = 0
+    if powerups['nuclear-bomb'] > 0:
+        selected_powerup = 'nuclear-bomb'
+        cursor_size = 2
+    elif powerups['fragment-bomb'] > 0:
+        selected_powerup = 'fragment-bomb'
+    elif powerups['missile'] > 0:
+        selected_powerup = 'missile'
+        cursor_size = 1
+
+    # Minimize sum of heatmap if shot is a miss
+    shot_results = np.zeros((len(board), len(board[0])), dtype=int)
+    for row in range(len(board)):
+        for col in range(len(board[0])):
+            # Send a ray in each direction and subtract the heatmap value from max, add to shot_results
+            # Current cell
+            shot_results[row][col] += heatmap[row][col]
+
+            # Vertical & Horizontal
+            shot_results[row][col] += sum(heatmap[row - i][col] for i in range(cursor_size) if row - i >= 0)
+            shot_results[row][col] += sum(heatmap[row + i][col] for i in range(cursor_size) if row + i < len(board))
+            shot_results[row][col] += sum(heatmap[row][col - i] for i in range(cursor_size) if col - i >= 0)
+            shot_results[row][col] += sum(heatmap[row][col + i] for i in range(cursor_size) if col + i < len(board))
+
+            # Diagonal
+            shot_results[row][col] += sum(heatmap[row - i][col - i] for i in range(cursor_size - 1) if row - i >= 0 and col - i >= 0)
+            shot_results[row][col] += sum(heatmap[row + i][col - i] for i in range(cursor_size - 1) if row + i < len(board) and col - i >= 0)
+            shot_results[row][col] += sum(heatmap[row + i][col + i] for i in range(cursor_size - 1) if row + i < len(board) and col + i < len(board[0]))
+            shot_results[row][col] += sum(heatmap[row - i][col + i] for i in range(cursor_size - 1) if row - i >= 0 and col + i < len(board[0]))
+    heatmap = shot_results
+
+    # Shoot ? if one exists and have no powerups
+    if selected_powerup == 'default':
+        for row in range(len(board)):
+            for col in range(len(board[0])):
+                if board[row][col] == '?':
+                    heatmap = np.zeros((len(board), len(board[0])), dtype=int)
+                    heatmap[row][col] = 1
+
+    print(f'generate_search_mode_heatmap took {time() - t0} seconds')
+
+    return heatmap, selected_powerup
+
+
 def shoot():
+    t0 = time()
     # Choose search or attack mode
     board, sunk_ships = driver.get_board()
+    print(f'getting board took {time() - t0} seconds')
     mode = 'search'
     for row in board:
         for cell in row:
@@ -183,58 +256,34 @@ def shoot():
             elif ship_id == 'op':
                 ship_lengths.append(2)
 
-    # Create heatmap
     heatmap = np.zeros((len(board), len(board[0])), dtype=int)
+    powerup = 'default'
 
     # === Search mode ===
     if mode == 'search':
-        # TODO: Shoot ? if one exists
+        heatmap, powerup = generate_search_mode_heatmap(board, ship_lengths)
 
-        # Mark all spaces adjacent to sunk ships as invalid
-        for row in range(len(board)):
-            for col in range(len(board[0])):
-                if board[row][col].isupper():
-                    if row > 0 and board[row - 1][col] == ' ':
-                        board[row - 1][col] = '.'
-                    if row < len(board) - 1 and board[row + 1][col] == ' ':
-                        board[row + 1][col] = '.'
-                    if col > 0 and board[row][col - 1] == ' ':
-                        board[row][col - 1] = '.'
-                    if col < len(board[0]) - 1 and board[row][col + 1] == ' ':
-                        board[row][col + 1] = '.'
-
-        # Populate heatmap
-        for row in range(len(board)):
-            for col in range(len(board[0])):
-                # If space is empty, test all ship locations on it
-                if board[row][col] in {' ', '?'}:
-                    heatmap[row][col] += get_potential_ship_count(board, row, col, ship_lengths)
-
-    # === Attack mode ===
+        # === Attack mode ===
     else:
         heatmap = generate_attack_mode_heatmap(board, ship_lengths)
 
     # === Shoot at most likely space ===
-    print(f'{mode} mode')
-    # for row in board:
-    #     print(' '.join(row))
-    for row in heatmap:
-        print(row)
-    print(ship_lengths)
-
     max_probability = np.amax(heatmap)
     shot, shotr, shotc = False, 0, 0
     for row in range(len(heatmap)):
         for col in range(len(heatmap[0])):
             if heatmap[row][col] == max_probability:
-                driver.shoot(row, col)
-                print(row, col, heatmap[row][col])
+                t1 = time()
+                driver.shoot(row, col, powerup)
+                print(f'actually shooting took {time() - t1} seconds')
                 shot = True
                 shotr = row
                 shotc = col
                 break
         if shot:
             break
+
+    print(f'shoot(): {time() - t0}')
 
     # === Return response ===
     while board[shotr][shotc] in {' ', '?'}:
@@ -256,9 +305,6 @@ if __name__ == '__main__':
     while True:
         driver.close_tips()
 
-        # print('My turn:', driver.is_my_turn())
         if driver.is_my_turn():
             result = shoot()
             print(result)
-        # sleep(5)
-        # input()
